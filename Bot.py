@@ -32,7 +32,6 @@ class Bot:
     def get_next_step(self):
         ship = self.is_see_ship
         list_steps = self.list_steps
-
         if ship:
             if len(ship) == 1:
                 next_step = self.processing_ship_length_one()
@@ -64,7 +63,6 @@ class Bot:
                 if abs(d_x) + abs(d_y) == 1 and Bot.in_correct_boundaries(ship[0].x + d_x, ship[0].y + d_y, matrix):
                     if matrix[ship[0].y + d_y][ship[0].x + d_x].value == TipeCeil.UNEXPLORED.value:
                         norm_cells.append(Point(ship[0].y + d_y, ship[0].x + d_x))
-                    print(ship[0].x + d_x, ship[0].y + d_y, d_y, d_x)
         if not norm_cells:
             for d_y in range(-1, 2):
                 for d_x in range(-1, 2):
@@ -240,7 +238,5 @@ class Bot:
             y += 1
             if y >= len(matrix):
                 break
-        for i in range(len(list_steps)):
-            print(list_steps[i].y, list_steps[i].x)
 
         return list_steps

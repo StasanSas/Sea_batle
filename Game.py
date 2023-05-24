@@ -83,10 +83,8 @@ class Game:
             if self.player_turn == 1:
                 if self.is_in_field():
                     self.processing_fields("Ход за человека")
-                    self.player_turn = 2
             if self.player_turn == 2:
                 self.processing_fields("Ход за бота")
-                self.player_turn = 1
             self.tk.update_idletasks()
             self.tk.update()
 
@@ -130,6 +128,7 @@ class Game:
                 self.list_id.append(id2)
                 curr_field[y][x - curr_delta] = TipeCeil.EMPTY
                 self.last_click = None
+                self.player_turn = 2
 
         def processing_fild_robot(curr_field, curr_delta):
             if curr_field[y][x].value == TipeCeil.SHIP.value:
@@ -162,6 +161,7 @@ class Game:
                         bot.list_steps.pop(i)
                         break
                 self.last_click = None
+                self.player_turn = 1
 
         if name_player == "Ход за человека":
             x = self.last_click.x
@@ -242,7 +242,3 @@ class Game:
         click = Point(y, x)
         self.last_click = click
 
-
-if __name__ == "__main__":
-    game = Game(600, 600, 10, 10, 250)
-    game.start()
