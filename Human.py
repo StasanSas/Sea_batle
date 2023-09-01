@@ -1,42 +1,72 @@
 import time
 import random
-from Point import Point
-from FieldGenerator import FieldGenerator
-from enum import Enum
-
-
-class TipeCeil(Enum):
-    UNEXPLORED = 0
-    SHIP = 1
-    BROKEN_SHIP = 2
-    EMPTY = 3
+from Infrastructure import Point, Ship_info, Ship, Ceil, TipeCeil
 
 
 class Human:
-    def __init__(self, step_x, step_y, count_cells_x, count_cells_y, canvas, tk):
-        self.matrix = [[TipeCeil.UNEXPLORED] * count_cells_x for _ in range(count_cells_y)]
+    def __init__(self, step_x, step_y, count_cells_x, count_cells_y, canvas, tk, list_name_ship):
+        self.matrix = []
+        for y in range(count_cells_y):
+            row = []
+            for x in range(count_cells_x):
+                row.append(Ceil(TipeCeil.UNEXPLORED, Point(y, x)))
+            self.matrix.append(row)
 
         self.canvas = canvas
         self.tk = tk
         self.step_x = step_x
         self.step_y = step_y
         self.list_id = []
-        self.list_ship = FieldGenerator.generate_list_ships(count_cells_y, count_cells_x)
+        self.list_name_ship = list_name_ship
         self.list_uncorrected_points = []
 
         self.ready_for_processing = False
         self.ship_delivered = False
         self.list_point_curr_ship = []
         self.list_id_curr_ship = []
+        self.name_curr_ship = None
+        self.curr_ship = None
+        self.list_ships = []
 
-    def move(self, d_x, d_y):
+    def forward_movement(self, list_point, d_x, d_y):
         next_points_ship = []
+        for i in range(len(list_point)):
+            if Human.in_correct_boundaries(list_point[i].x + d_x, list_point[i].y + d_y, self.matrix):
+                next_points_ship.append(Point(list_point[i].y + d_y, list_point[i].x + d_x))
+        return next_points_ship
+
+    def rotary_motion(self, list_point):
+        pivot_point = self.found_left_up_point(list_point)
+        next_name = Ship_info.dict_rotation[self.name_curr_ship]
+
+        next_points_ship = []
+        for point in list(Ship_info.point_for_draw[next_name]):
+            next_points_ship.append(Point(pivot_point.y + point.y, pivot_point.x + point.x))
+
+        if not self.is_correct_point(self.matrix, next_points_ship):
+                return
+
+        self.name_curr_ship = next_name
+        self.curr_ship = Ship(Ship_info(next_name))
+        return next_points_ship
+
+    def found_left_up_point(self, list_point):
+        left = None
+        up = None
+        for point in list_point:
+            if left is None or point.x < left:
+                left = point.x
+            if up is None or point.y < up:
+                up = point.y
+        return Point(up, left)
+    def moving(self, d_x, d_y, is_rotate):
         list_point = self.list_point_curr_ship
         list_id = self.list_id_curr_ship
         if self.ready_for_processing:
-            for i in range(len(list_point)):
-                if Human.in_correct_boundaries(list_point[i].x + d_x, list_point[i].y + d_y, self.matrix):
-                    next_points_ship.append(Point(list_point[i].y + d_y, list_point[i].x + d_x))
+            if not is_rotate:
+                next_points_ship = self.forward_movement(list_point, d_x, d_y)
+            else:
+                next_points_ship = self.rotary_motion(list_point)
             if len(list_point) == len(next_points_ship):
                 for address in list_id:
                     self.canvas.delete(address)
@@ -51,53 +81,6 @@ class Human:
             self.tk.update_idletasks()
             self.tk.update()
 
-    def rotate(self):
-        next_points_ship = []
-        list_point = self.list_point_curr_ship
-        list_id = self.list_id_curr_ship
-        if len(list_point) != 1 and self.ready_for_processing:
-
-            if list_point[0].x == list_point[1].x:
-                x = list_point[0].x
-                list_y = [point.y for point in list_point]
-                y = min(list_y)
-                for i in range(len(list_point)):
-                    if Human.in_correct_boundaries(x + i, y, self.matrix):
-                        next_points_ship.append(Point(y, x + i))
-
-                if len(list_point) == len(next_points_ship):
-                    for address in list_id:
-                        self.canvas.delete(address)
-                    list_id = []
-                    self.list_point_curr_ship = next_points_ship
-                    for point in next_points_ship:
-                        address = self.canvas.create_rectangle(
-                            point.x * self.step_x, point.y * self.step_y,
-                            (point.x + 1) * self.step_x, (point.y + 1) * self.step_y, fill="red")
-                        list_id.append(address)
-                    self.list_id_curr_ship = list_id
-
-            if list_point[0].y == list_point[1].y:
-                y = list_point[0].y
-                list_x = [point.x for point in list_point]
-                x = min(list_x)
-                for i in range(len(list_point)):
-                    if Human.in_correct_boundaries(x, y + i, self.matrix):
-                        next_points_ship.append(Point(y + i, x))
-
-                if len(list_point) == len(next_points_ship):
-                    for address in list_id:
-                        self.canvas.delete(address)
-                    list_id = []
-                    self.list_point_curr_ship = next_points_ship
-                    for point in next_points_ship:
-                        address = self.canvas.create_rectangle(
-                            point.x * self.step_x, point.y * self.step_y,
-                            (point.x + 1) * self.step_x, (point.y + 1) * self.step_y, fill="red")
-                        list_id.append(address)
-                    self.list_id_curr_ship = list_id
-            self.tk.update_idletasks()
-            self.tk.update()
 
     def clean_curr_ship(self):
         matrix = self.matrix
@@ -111,7 +94,10 @@ class Human:
             self.list_id += self.list_id_curr_ship
             self.list_id_curr_ship = []
             for point in list_point:
-                matrix[point.y][point.x] = TipeCeil.SHIP
+                matrix[point.y][point.x].type = TipeCeil.UNEXPLORED_SHIP
+                matrix[point.y][point.x].ship = self.curr_ship
+                self.curr_ship.list_ceil.append(matrix[point.y][point.x])
+            self.list_ships.append(self.curr_ship)
             for point in list_point:
                 for d_y in range(-1, 2):
                     for d_x in range(-1, 2):
@@ -122,6 +108,7 @@ class Human:
             self.tk.update_idletasks()
             self.tk.update()
             self.ship_delivered = True
+            self.curr_ship = None
         else:
             for i in range(3):
                 ids = []
@@ -153,20 +140,32 @@ class Human:
 
     def mover(self, event):
         if event.keysym == "Up":
-            self.move(0, -1)
+            self.moving(0, -1, False)
         elif event.keysym == "Down":
-            self.move(0, 1)
+            self.moving(0, 1, False)
         elif event.keysym == "Left":
-            self.move(-1, 0)
+            self.moving(-1, 0, False)
         elif event.keysym == "Right":
-            self.move(1, 0)
+            self.moving(1, 0, False)
         elif event.keysym == "r":
-            self.rotate()
+            self.moving(0, 0, True)
         elif event.keysym == "Return":
             self.clean_curr_ship()
 
+    def is_correct_point(self, matrix, list_point_ship):
+        for point in list_point_ship:
+            if not Human.in_correct_boundaries(point.x, point.y, matrix):
+                list_point_ship = []
+                return False
+            if not Human.not_contains(point.x, point.y, self.list_uncorrected_points):
+                list_point_ship = []
+                return False
+        return True
+
+
+
     def init_matrix(self):
-        list_ship = self.list_ship
+        list_name_ship = self.list_name_ship
         matrix = self.matrix
 
         self.canvas.bind_all("<KeyPress-Left>", self.mover)
@@ -175,31 +174,25 @@ class Human:
         self.canvas.bind_all("<KeyPress-Up>", self.mover)
         self.canvas.bind_all("<KeyPress-r>", self.mover)
         self.canvas.bind_all("<KeyPress-Return>", self.mover)
-        list_point_ship = self.list_point_curr_ship
         list_id_rec_ship = self.list_id_curr_ship
-        while list_ship:
-            list_uncorrected_points = self.list_uncorrected_points
-            ship = list_ship[0]
-            direction = random.randint(0, 1)
-            start_x = random.randint(0, len(matrix[0]) - ship)
-            start_y = random.randint(0, len(matrix) - ship)
-            if direction == 0:
-                for i in range(ship):
-                    list_point_ship.append(Point(start_y, start_x + i))
-            if direction == 1:
-                for i in range(ship):
-                    list_point_ship.append(Point(start_y + i, start_x))
+        j = 0
+        while j != len(list_name_ship):
+            tup_variants = Ship_info.dict_for_generation[list_name_ship[j]]
+            ship = Ship(Ship_info(tup_variants[random.randint(0, len(tup_variants) - 1)]))
 
-            is__uncorrected_ship = False
-            for point in list_point_ship:
-                if not Human.not_contains(point.x, point.y, list_uncorrected_points):
-                    list_point_ship = []
-                    is__uncorrected_ship = True
-                    break
-            if is__uncorrected_ship:
+            start_x = random.randint(0, len(matrix[0]))
+            start_y = random.randint(0, len(matrix))
+
+            list_point_ship = []
+            for point in ship.info.list_point_for_draw:
+                list_point_ship.append(Point(start_y + point.y, start_x + point.x))
+
+            if not self.is_correct_point(matrix, list_point_ship):
                 continue
 
             self.list_point_curr_ship = list_point_ship
+            self.name_curr_ship = ship.info.name
+            self.curr_ship = ship
             for i in range(len(list_point_ship)):
                 address = self.canvas.create_rectangle(
                     list_point_ship[i].x * self.step_x, list_point_ship[i].y * self.step_y,
@@ -216,11 +209,11 @@ class Human:
                 self.tk.update()
                 if self.ship_delivered:
                     self.list_point_curr_ship = []
-                    list_point_ship = []
                     self.list_id_curr_ship = []
                     list_id_rec_ship = []
-                    list_ship.pop(0)
+                    j = j + 1
                     self.ship_delivered = False
                     self.ready_for_processing = False
                     break
                 time.sleep(0.005)
+        return matrix, self.list_ships
